@@ -1,6 +1,6 @@
 #serializer
 from rest_framework.serializers import ModelSerializer
-from .models import UserBase, UserDevice, DeviceToken, VideoInfo, WordInfo, FlashCard
+from .models import UserBase, UserDevice, DeviceToken, VideoInfo, WordInfo, FlashCard, Course
 from rest_framework import serializers
 from django.conf import settings
 class UserBaseSerializer(ModelSerializer):
@@ -38,6 +38,11 @@ class VideoInfoSerializer(ModelSerializer):
     class Meta:
         model = VideoInfo
         fields = ('video_name', 'video_id', 'title', 'duration', 'image')
+
+class CourseListSerializer(ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ('course_id', 'title')
 
 class WordInfoSerializer(ModelSerializer):
     class Meta:

@@ -6,7 +6,7 @@ from django.conf import settings
 
 from .views import (RegisterUser, VideoList, DownloadSrt, DownloadHtml, Send_OTP,
         RegisterDevice, Add_Litner, ShowLitner, Calc_SM2, Verify_OTP, DownloadHtmlPersian,
-        Get_Info)
+        Get_Info, DelLeitnerItem, EditLeitnerItem, CourseList, CourseItem)
 
 urlpatterns = [
         path('register/user/',RegisterUser, name = 'register_user'),
@@ -20,5 +20,9 @@ urlpatterns = [
         path('flashcard/review/', Calc_SM2, name = 'ReviewFlashcard'),
         path('verify/otp/', Verify_OTP, name = 'Verify_OTP'),
         path('html/persian/download/', DownloadHtmlPersian, name = 'DownloadHtmlPersion'),
-        path('get/info/', Get_Info, name = 'GetInfo')
+        path('get/info/', Get_Info, name = 'GetInfo'),
+        path('del/leitner/', DelLeitnerItem, name= 'DeleteLeitner'),
+        path('edit/leitner/', EditLeitnerItem, name= 'EditLeitner'),
+        path('course/list/', CourseList.as_view(), name= 'courselist'),
+        path('course/item/', CourseItem, name= 'coursedetail')
 ]

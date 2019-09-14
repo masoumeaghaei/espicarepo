@@ -4,7 +4,7 @@ from celery import Celery
 
 #set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'espica.settings')
-app = Celery('espica')
+app = Celery('espica',broker='redis://localhost:6379/0', backend='redis://localhost',)
 
 
 # Using a string here means the worker doesn't have to serialize

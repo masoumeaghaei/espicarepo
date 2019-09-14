@@ -1,13 +1,13 @@
 from django.shortcuts import render
 from rest_framework.response import Response
-from .models import UserBase, UserDevice, VideoInfo, FlashCard, SubtitleInfo, HtmlFileInfo, DeviceToken, WordInfo, NoteInfo, HtmlFilePersian
+from .models import UserBase, UserDevice, VideoInfo, FlashCard, SubtitleInfo, HtmlFileInfo, DeviceToken, WordInfo, NoteInfo, HtmlFilePersian,Course
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
 from rest_framework import status,generics
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.views import APIView
-from .serializer import UserBaseSerializer, VideoInfoSerializer, WordInfoSerializer, FlashCardSerializer
+from .serializer import UserBaseSerializer, VideoInfoSerializer, WordInfoSerializer, FlashCardSerializer, CourseListSerializer
 from kavenegar import *
 import  random, binascii, os, re, json
 from django.http.response import FileResponse
@@ -15,7 +15,7 @@ from rest_framework.pagination import LimitOffsetPagination
 from .permissions import CustomPermission
 from datetime import datetime
 from django.http import HttpResponse
-
+from django.conf import settings
 # Create your views here.
 
 class RegisterDevice(APIView):
@@ -139,6 +139,9 @@ def Calc_SM2(request):
                 repetition = 0
             else:
                 repetition +=1
+                if (repetition >=6):
+                    card.archive = True
+                    card.save()
             if repetition <= 1:
                 interval = 1
             elif repetition == 2:
@@ -161,8 +164,8 @@ def Calc_SM2(request):
 def ShowLitner(request):
     try:
         now = datetime.now().strftime('%Y-%m-%d')
-        word_list = FlashCard.objects.filter(user_id = request.data.get('user_id'), nextpracticedate__lte = now, word_id__isnull= False).values('card_id', 'word_id__title', 'word_id__description', 'types')
-        note_list = FlashCard.objects.filter(user_id = request.data.get('user_id'), nextpracticedate__lte = now, note_id__isnull= False).values('card_id', 'note_id__title', 'note_id__description', 'types', 'note_id__sentence')
+        word_list = FlashCard.objects.filter(user_id = request.data.get('user_id'), archive= False, nextpracticedate__lte = now, word_id__isnull= False).values('repetition', 'card_id', 'word_id__title', 'word_id__description', 'types')
+        note_list = FlashCard.objects.filter(user_id = request.data.get('user_id'), archive= False, nextpracticedate__lte = now, note_id__isnull= False).values('card_id','repetition', 'note_id__title', 'note_id__description', 'types', 'note_id__sentence')
         
         #join_list = FlashCard.objects.filter(user_id = request.data.get('user_id'), nextpracticedate__lte= now).values('card_id', 'word_id__title','word_id__description', 'types')
         #wordinfo_list = WordInfo.objects.filter(word_id__in = wordinfoid_list.values('word_id')).select_related(wordinfoid_list)
@@ -171,9 +174,9 @@ def ShowLitner(request):
         #joinlist = list(chain(wordinfoid_list,wordinfo_list))
         items = []
         for item in word_list:
-            items.append({'title': item.get('word_id__title'), 'description':item.get('word_id__description'), 'type': item.get('types') ,'card_id': item.get('card_id')})
+            items.append({'title': item.get('word_id__title'), 'description':item.get('word_id__description'), 'repeat': item.get('repetition'),'type': item.get('types') ,'card_id': item.get('card_id')})
         for item in note_list:
-            items.append({'title': item.get('note_id__title'), 'description': item.get('note_id__description'), 'type': item.get('types'), 'card_id': item.get('card_id'), 'sentence': item.get('note_id__sentence')})
+            items.append({'title': item.get('note_id__title'), 'description': item.get('note_id__description'), 'repeat': item.get('repetition'), 'type': item.get('types'), 'card_id': item.get('card_id'), 'sentence': item.get('note_id__sentence')})
         return Response({'data':{'items': items}, 'status': {'code': '200'}})
     except Exception as e:
         return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
@@ -236,8 +239,8 @@ def Add_Litner(request):
            data = {'user_id': request.data.get('user_id'), 'note_id': note[0].note_id, 'types': 'note'}
            serializer = FlashCardSerializer(data = data)
            if serializer.is_valid():
-               serializer.save()
-               return Response({'data':{}, 'status': {'code': '200'}})
+              new_card = serializer.save()
+              return Response({'data':{"card_id": new_card.card_id}, 'status': {'code': '200'}})
         else:
             data = {'title': request.data.get('title'),'description': request.data.get('description')}
             serializer = WordInfoSerializer(data=data)
@@ -249,8 +252,8 @@ def Add_Litner(request):
             data2 = {'user_id': request.data.get('user_id'), 'word_id': new_word.word_id, 'types': request.data.get('type')}
             serializer2 = FlashCardSerializer(data=data2)
             if serializer2.is_valid():
-                serializer2.save()
-                return Response({'data': {}, 'status': {'code': '200'}})
+                new_card = serializer2.save()
+                return Response({'data': {"card_id":new_card.card_id}, 'status': {'code': '200'}})
             else:
                 new_word.delete()
                 return Response({'data': {}, 'status': {'code': '500', 'message': str(serializer2.errors)}})
@@ -278,6 +281,66 @@ def Get_Info(request):
         note = NoteInfo.objects.filter(video_id= video_id, title= title)
         data = {"title" : note[0].title, "description" : note[0].description, "sentence": note[0].sentence}
         return Response({'data': data, 'status': {'code': '200'}})
+    except Exception as e:
+        return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
+@api_view(['POST'])
+def DelLeitnerItem(request):
+    try:
+        card = FlashCard.objects.filter(card_id=request.data.get('card_id'))
+        if card[0].word_id is not None:
+            word_id = card[0].word_id.word_id
+            card.delete 
+            WordInfo.objects.filter(word_id=word_id).delete()
+        else:
+            note_id = card[0].note_id.note_id
+            card.delete
+            NoteInfo.objects.filter(note_id=note_id).delete()
+        return Response({'data': {}, 'status': {'code': '200'}})
+    except Exception as e:
+        return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
+
+@api_view(['POST'])
+def EditLeitnerItem(request):    
+    try:
+        card = FlashCard.objects.filter(card_id=request.data.get('card_id')).first()
+        title = request.data.get('title')
+        des = request.data.get('description')
+        if card.word_id is not None:
+            word = WordInfo.objects.filter(word_id = card.word_id.word_id).first()
+            serializer = WordInfoSerializer(word, data = {'title': title, 'description': des}, partial = True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'data': {"card_id": card.card_id}, 'status': {'code': '200'}})
+        if card.note_id is not None:
+            pass      
+        
+    except Exception as e:
+        return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
+
+#@api_view(['POST'])
+#def CourseList(request):
+#    try:
+#        courses = Course.objects.values('title')
+#        return Response({'data': {"items": courses}, 'status':{'code': '200'}})
+#
+#    except Exception as e:
+#        return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
+class CourseList(generics.ListAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseListSerializer
+    pagination_class = LimitOffsetPagination
+
+@api_view(['POST'])
+def CourseItem(request):
+    #request.data.get('title')
+    try:
+        #items = list(Course.objects.filter(course_id= request.data.get('course_id')).values('video_list__title', 'video_list__video_id', 'video_list__video_name',  'video_list__duration', 'video_list__image'))
+        items = Course.objects.filter(course_id= request.data.get('course_id')).values('video_list__title', 'video_list__video_id', 'video_list__video_name','video_list__duration', 'video_list__image', 'video_list__coin')
+        data_list = []
+        for item in items:
+            data_list.append({'video_id': item.get('video_list__video_id'), 'video_name': settings.MEDIA_SET+'video/'+item.get('video_list__video_name'), 'title': item.get('video_list__title'), 'duration': item.get('video_list__duration'), 'image': settings.MEDIA_SET+item.get('video_list__image'), 'coin': item.get('video_list__coin')})
+
+        return Response({'data': {'items' : data_list}, 'status': {'code': '200'}})
     except Exception as e:
         return Response({'data': {}, 'status': {'code': '500', 'message': str(e)}})
 

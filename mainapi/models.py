@@ -19,11 +19,17 @@ class DeviceToken(models.Model):
     def generate_key(self):
         return binascii.hexlify(os.urandom(20)).decode()
 
+class Course(models.Model):
+    course_id = models.AutoField(primary_key = True)
+    title = models.CharField(max_length= 30)
+    video_list = models.ManyToManyField('VideoInfo')
+
 class UserBase(models.Model):
     user_id = models.AutoField(primary_key = True)
     mobile = models.CharField(max_length=11, blank = True)
     email = models.CharField(max_length = 30, blank = True)
     pass_code = models.CharField(max_length = 5, blank = True)
+    favorites = models.ManyToManyField(Course, blank = True)
 
 class UserDevice(models.Model):
     user_id = models.ForeignKey(UserBase, on_delete = models.CASCADE)
@@ -37,6 +43,7 @@ class VideoInfo(models.Model):
     path = models.FileField(upload_to = 'video', blank = True)
     duration = models.CharField(max_length = 20, default = '00:00:00')
     image = models.ImageField(upload_to = 'pic', blank = True)
+    coin = models.IntegerField(default=0)
 
 class SubtitleInfo(models.Model):
     subtitle_id = models.AutoField(primary_key = True)
@@ -77,6 +84,8 @@ class FlashCard(models.Model):
     repetition = models.IntegerField(default=0, blank = True)
     interval = models.IntegerField(default=0, blank = True)
     efactor = models.FloatField(default=2.5, blank = True)
-    nextpracticedate = models.DateField(default= (datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d'))
+    nextpracticedate = models.DateField(default= datetime.now().strftime('%Y-%m-%d'))
     create_date = models.DateField(default = datetime.now().strftime('%Y-%m-%d'))
     types = models.CharField(max_length = 60, default = 'word')
+    archive = models.BooleanField(default=False)
+
